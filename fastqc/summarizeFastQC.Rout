@@ -1,0 +1,48 @@
+
+R version 3.6.0 (2019-04-26) -- "Planting of a Tree"
+Copyright (C) 2019 The R Foundation for Statistical Computing
+Platform: x86_64-redhat-linux-gnu (64-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+[Previously saved workspace restored]
+
+> rm(list=ls())
+> 
+> wd = "/home/biostats_share/Norris/data/RNAseq/fastQC/"
+> 
+> files = list.files(wd, recursive=TRUE)
+> 
+> files.want = files[grep("summary", files)]
+> file = files.want[1]
+> 
+> #for(i in 1:5){
+> for(i in 1:length(files.want)){
++ 	file = files.want[i]
++ 	results = read.table(file=paste0(wd, "/", file), sep="\t")
++ 	batch = sapply(strsplit(file, split="/", fixed=TRUE), "[[", 1)
++ 	results$batch = batch
++ 	
++ 	if(i!=1) fullSummary = rbind(results,fullSummary)
++ 	if(i==1) fullSummary = results
++ 	}
+> 	
+> ##since we have 1,102 fastqc summaries and each have 11 rows, we expect an resulting matrix with 12,122 rows and 4 columns.  
+> 
+> save(fullSummary, file=paste0(wd, "fullSummary.Rdata"))
+> 
+> proc.time()
+   user  system elapsed 
+  3.416   0.467   6.331 
