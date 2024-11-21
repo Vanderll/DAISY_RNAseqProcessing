@@ -1,0 +1,564 @@
+---
+title: "RNA-Seq Pre-processing"
+author: "Lauren Vanderlinden"
+date: "11/9/2020"
+output: html_document
+---
+
+This document goes over how data was processed up to RSEM quantitation and then records how the RNA-sequencing data is processed starting from RSEM results to data used for statistical analyses.  
+
+### Pre-processing ###
+
+**Trimming** 
+
+Data were first trimmed by using the general cutadapt (version 1.18) code:
+
+```{r, eval=FALSE}
+cutadapt -u 15 -U 15 -q 20 -m 20 -a AGATCGGAAGAGCACACGTCTGAACTCCAGTCA -A AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGT -o $f_trimmed -p $f2_trimmed $f $f2
+```
+
+The shell script files (.sh) to run the batches of this are located on csphbiostats and have the general format of:
+
+```{r, eval=FALSE}
+/home/vanderll/Norris/RNAseq_processing/programs/trimmReads/trimmReads.batch##.sh
+```
+
+**Merging Runs**
+
+We had each sample run 2 times to get enough reads.  Needed to merge the trimmed files.  This is the program to merge the trimmed fastq files:
+
+```{r, eval=FALSE}
+/home/vanderll/Norris/RNAseq_processing/programs/trimmReads/cat_trimmedFiles.sh
+```
+
+**Aligning & Quanitating**
+
+Data were aligned and quantitated using RSEM (v1.3.2).  The general RSEM code is as follows:
+
+```{r, eval=FALSE}
+rsem-calculate-expression -p 8 --time --seed 2020 --bowtie2 --paired-end /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/SAMPLE_R1.fastq /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/SAMPLE_R2.fastq  /home/biostats_share/Norris/data/annotation/hg19/rsem_ref/hg19 SAMPLE
+```
+
+The programs to align & quantiate have the general format:  
+
+```{r, eval=FALSE}
+/home/vanderll/Norris/RNAseq_processing/programs/quantitation/rsem_code_batch###.txt
+```
+
+**Merging into Matrix**
+
+The code to merge into a single count matrix used moving forward is:
+
+```{r, eval=FALSE}
+/home/vanderll/Norris/RNAseq_processing/programs/getFinalMatrix/getRSEMcountMatrix.geneLevel.R
+```
+
+### Overview ###
+
+These are the steps we will perform now that we have all the data together in 1 matrix:
+
+**1.** Remove Low Abundant (poor QC) Samples
+
+**2.** Filter Features Not Detected Above Background
+
+**3.** Filter Samples with High 0 Counts
+
+**4.** Normalize data using empirical RUV method
+
+**5.** Transform data using rlog
+
+
+```{r, include=FALSE}
+rm(list=ls())
+
+#trace(utils:::unpackPkgZip, edit=TRUE)
+library(limma)
+#library(DESeq2) 
+#library(DESeq) 
+#library(RUVnormalize)
+require(ggplot2)
+library(RColorBrewer)
+#library(RUVSeq)
+library(WGCNA)
+library(knitr)
+#library(EDASeq)
+library(ggpubr)
+library(dplyr)
+#library(mixOmics)
+```
+
+```{r, echo=FALSE}
+load("C:/Users/vanderll/Documents/Norris/RNAseq/geneLevel/RSEM.estCounts.geneLevel.Rdata")
+
+sampleNames = sapply(strsplit(colnames(counts), split="_", fixed=TRUE), "[[", 1) 
+findTR = table(sampleNames)
+TR = as.matrix(findTR[findTR>1])
+colnames(TR) = "Number Technical Replicates"
+save(TR, file="Y:/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/TRs.Rdata")
+
+
+uniqueSamples = colnames(counts)[!duplicated(sampleNames)]
+
+batch = paste("batch", sapply(strsplit(colnames(counts), split="_", fixed=TRUE), "[[", 2), sep="")
+
+samplesPerBatch = data.frame(table(batch))
+colnames(samplesPerBatch) = c("Batch", "NumberOfSamples")
+samplesPerBatch$Batch = gsub("batch", "Batch ", samplesPerBatch$Batch)
+
+samplesPerBatch = samplesPerBatch[c(1:4),]
+```
+
+We have a total of **`r ncol(counts)`** RNA-sequencing samples **`r nrow(samplesPerBatch)`** batches.  
+
+**Samples/Batch**
+
+The following table shows the number of samples run per batch:
+
+`r kable(samplesPerBatch, align='c', row.names=FALSE)`
+
+
+**Technical Replicates**
+
+Here is a table of the technical replicates:
+
+`r kable(TR, align='c')`
+
+**Number of Genes **
+
+Quantitating using the hg19 Ensembl transcriptome build v87, we have **`r prettyNum(nrow(counts), big.mark=",")`** genes.  
+
+
+### Step 1. Remove Low Signal Samples ###
+
+```{r, eval=TRUE, echo=FALSE}
+countSums = colSums(counts)
+badSamples = names(countSums[which(countSums<1000000)])
+counts2 = counts[,-which(colnames(counts) %in% badSamples)]
+```
+
+Visualizing the distributions of total count sum:
+
+```{r, error=FALSE, warning=FALSE, message=FALSE, echo=FALSE}
+qplot(countSums, geom="histogram",main = "Sample Library Sizes (after RSEM)", xlab = "Sample Sums", bins=50) + 
+  geom_vline(xintercept=1000000, col="red",linetype="dotted")+
+  theme_bw()+
+  ylab("number of samples")
+```
+
+There is 1 really low total count sample.  This is sample: 110627_4.  It has a total of 135,349 expected counts.  
+
+This is a technical replicate, so at least it's not a true sample.  Going to remove this from the analysis and move onto the next step.  
+
+**Lauren TO DO:**  All runs looked to have okay number of total reads.  Where did this go wrong.  Was it after trimming (poor reads) or quantitation (poor alignment) or both?  
+
+If we split this up based on batch:
+
+```{r, error=FALSE, warning=FALSE, message=FALSE,echo=FALSE}
+countSums2 = data.frame(countSums = countSums, batch = sapply(strsplit(names(countSums), split="_", fixed=TRUE), "[[", 2))
+
+ggplot(countSums2,aes(x=countSums)) + 
+    geom_histogram(data=subset(countSums2,batch == "1"),aes(fill = "1"), alpha = 0.7, bins=50) +
+    geom_histogram(data=subset(countSums2,batch == "2"),aes(fill = "2"), alpha = 0.7, bins=50) +
+    geom_histogram(data=subset(countSums2,batch == "3"),aes(fill = "3"), alpha = 0.7, bins=50) +
+    geom_histogram(data=subset(countSums2,batch == "4"),aes(fill = "4"), alpha = 0.7, bins=50) +
+    ggtitle("Expected Count Sums") + 
+    scale_fill_manual(name="batch",values=c("1"="blue", "2"="green", "3"="red", "4"="yellow"))+
+    theme(legend.position="bottom")+
+    theme_bw()
+```
+
+This seems to be a batch thing, like we saw before.  We will keep moving forward and see how well the normalization and transformation take care of this.  
+
+### Step 2. Feature Detection Above Background ###
+
+Features will be kept in if there are at least 20% of samples with at least 1 count.  In the histogram below, all features right of the red dotted line are removed.  We are keeping ~39% of the features.  Here is a visualization of the number of samples with a 0 counts and we are keeping everything left of the dotted line: 
+
+```{r, error=FALSE, warning=FALSE, message=FALSE, echo=FALSE}
+# Perform a reasonable filter.
+# Let's say the average number of counts needs to be 1/sample
+sums = apply(counts2, 1, sum)
+#averageCounts = apply(counts3, 1, mean)
+zeroCount = apply(counts2, 1, function(a) sum(a==0))
+#table(averageCounts<1)
+counts3 = counts2[which(zeroCount<(ncol(counts2)*0.8)),]
+
+#save(counts3, file="C:/Users/vanderll/Documents/Norris/RNAseq/geneLevel/counts_cleanedForNorm.Rdata")
+#load(file="C:/Users/vanderll/Documents/Norris/RNAseq/geneLevel/counts_cleanedForNorm.Rdata")
+```
+
+```{r, error=FALSE, warning=FALSE, message=FALSE, echo=FALSE}
+qplot(zeroCount, geom="histogram",main = "Number of 0 Counts", xlab = "Number of 0 Counts", bins=50) + 
+  geom_vline(xintercept=ncol(counts2)*0.8, col="red",linetype="dotted")+
+  theme_bw()+
+  ylab("number of genes")
+```
+
+### Step 3. Sample QC for High 0 Counts ###
+
+We want to remove samples where we have a high number of 0 counts.  If a sample has 0 counts for > 1/2 of the features, it will be removed from the analysis. 
+
+```{r, message=FALSE, warning=FALSE, echo=FALSE}
+sampleSum0 = apply(counts3, 2, function(a) sum(a==0))
+qplot(sampleSum0, geom="histogram",main = "Sample Sum of 0 Counts", xlab = "Sample Sum of 0 Counts", bins=50) + geom_vline(xintercept=0.5*nrow(counts3), col="red",linetype="dotted")+
+  theme_bw()
+```
+
+So none of the samples have 0 counts in over half the features.  There is a tail there were a few samples do have a high 0 count, so may reconsider in the future, but for now keep all in.  
+
+### Summary of Pre-Processing Filtering Steps (Steps 1-3) ### 
+
+| Filter | Description | Total Number of Genes | Total Number of Samples | 
+| :--------------: |:-----------:| :------------: |:---------------------------:|
+| None |  original data set | `r prettyNum(nrow(counts), big.mark=",")` | `r ncol(counts)` |
+| Remove Low Abundant Samples | remove samples <1 million reads) | `r prettyNum(nrow(counts2), big.mark=",")` | `r ncol(counts2)` |
+| Features Detected Above Background | At least 20% samples have 1 count | `r prettyNum(nrow(counts3), big.mark=",")`|`r ncol(counts3)`|
+| Remove Samples with High 0 Counts | More than 1/2 of genes are 0 counts | `r prettyNum(nrow(counts3), big.mark=",")` | `r ncol(counts3)`|
+
+### Visualization Pre-Normalization ###
+
+Just want to look at the data in a few different ways prior to normalization to see how well the normalization worked.  Going to look at a PC plot as well as a dendrogram.  To do this, I'm going to perform log2(count+1) transformation.  This is JUST for visualization purposes.  This also is a method to see if there are any outliers (based on poor correlation among other samples) that should be removed prior to the analysis.  
+
+**Dendrogram**
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE, error=FALSE}
+counts.hclust = hclust(as.dist(1-cor(log2(counts3+1), method="pearson")))
+batch = sapply(strsplit(counts.hclust$labels, split="_"), "[[", 2)
+colors = c(brewer.pal(9, "Set1"), brewer.pal(12, "Set3"))
+colors4plot=c()
+for(i in 1:length(batch)){
+  if(batch[i]=="1"){colors4plot[i]=colors[1]}
+  if(batch[i]=="2"){colors4plot[i]=colors[2]}
+  if(batch[i]=="3"){colors4plot[i]=colors[3]}
+  if(batch[i]=="4"){colors4plot[i]=colors[4]}
+  }
+colors4plot=as.matrix(colors4plot)
+colnames(colors4plot) = "Batch"
+
+colorsMore = c(brewer.pal(9, "Set1"), brewer.pal(12, "Set3"), brewer.pal(8, "Dark2"), brewer.pal(8, "Set2"), brewer.pal(7,"Accent"))
+
+TRs = vector(mode="character", length=length(counts.hclust$labels))
+TRs[grep(rownames(TR)[1],counts.hclust$labels)]=colorsMore[1]
+TRs[grep(rownames(TR)[2],counts.hclust$labels)]=colorsMore[2]
+TRs[grep(rownames(TR)[3],counts.hclust$labels)]=colorsMore[3]
+TRs[grep(rownames(TR)[4],counts.hclust$labels)]=colorsMore[4]
+TRs[grep(rownames(TR)[5],counts.hclust$labels)]=colorsMore[5]
+TRs[grep(rownames(TR)[6],counts.hclust$labels)]=colorsMore[6]
+TRs[grep(rownames(TR)[7],counts.hclust$labels)]=colorsMore[7]
+TRs[grep(rownames(TR)[8],counts.hclust$labels)]=colorsMore[8]
+TRs[grep(rownames(TR)[9],counts.hclust$labels)]=colorsMore[9]
+TRs[grep(rownames(TR)[10],counts.hclust$labels)]=colorsMore[10]
+TRs[grep(rownames(TR)[11],counts.hclust$labels)]=colorsMore[11]
+TRs[grep(rownames(TR)[12],counts.hclust$labels)]=colorsMore[12]
+TRs[which(TRs=="")]="gray"
+
+
+par(mfrow=c(1,1))
+plotDendroAndColors(dendro=counts.hclust, colors=cbind(colors4plot, TRs), main="Prior to Normalization (log2+1)", ylab="1-Pearson Correlation",cex.dendroLabels = 0.45) 
+```
+
+I’m going to remove that one outlier that is on the top left. This is sample 110440 and is the same outlier as prior to normalization. It’s a maintainer RNA visit 1.
+
+```{r, eval=FALSE, echo=FALSE}
+counts4 = counts3[,-which(colnames(counts3) == "110440_3")]
+save(counts4, file="C:/Users/vanderll/Documents/Norris/RNAseq/geneLevel/counts_cleanedForNorm.Rdata")
+
+###do this on csphbiostats;
+load(file="/home/vanderll/Norris/RNAseq_processing/data/processed/counts_cleanedForNorm.Rdata")
+pca.results = cmdscale(dist(t(log2(counts3+1))), k=3, eig=TRUE)  
+eig_pc_proportion <- pca.results$eig * 100 / sum(pca.results$eig)
+#look at this for PCA code with RNAseq data http://monashbioinformaticsplatform.github.io/RNAseq-DE-analysis-with-R/RNAseq_DE_analysis_with_R.html
+
+toPlot = data.frame(pca.results$points[,1:2])
+toPlot$batch = sapply(strsplit(rownames(toPlot), split="_", fixed=TRUE), "[[", 2)
+save(toPlot, pca.results, eig_pc_proportion, file="/home/vanderll/Norris/RNAseq_processing/data/processed/PC_cleanedPriorNorm.Rdata")
+```
+
+
+```{r, echo=FALSE}
+load(file="C:/Users/vanderll/Documents/Norris/RNAseq/geneLevel/PC_cleanedPriorNorm_wOutlier.Rdata")
+orig = ggplot(toPlot, aes(x=X1, y=X2, color=as.character(batch))) + geom_point() +
+  scale_color_manual(values=colors[c(1:11)])+
+  xlab(paste0("PC1 (", round(eig_pc_proportion[1], 2), "%)")) +
+  ylab(paste0("PC2 (", round(eig_pc_proportion[2], 2), "%)")) +
+  ggtitle("Prior to RUV") + 
+  labs(color="Batch")+
+  theme_bw()+
+  theme(legend.position="bottom")
+orig
+```
+
+That outlier (clearly seen in the dendrogram) which will be removed prior to RUV, is the sample on the far left of the PC plot (PC1 value = -214.4 and PC2 value = 20.39).   
+
+The outier is sample 110440 and is the same outlier as prior to normalization.  It's a maintainer RNA visit 1.  
+
+
+### Step 4. Normalize Data Using RUV Empirical Method ###
+
+```{r, warning=FALSE, message=FALSE, error=FALSE, eval=FALSE, echo=FALSE}
+#use csphbiostats (scratch that, sysgen as csphbiostats updated R and having issues installing the pacakges);
+rm(list=ls())
+pheno = read.csv(file="/data/home/vanderll/LaurenV_random/Norris/RNAseq_processing/data/phenoData/RNA_Phenotype_File_Final.csv")
+load(file="/data/home/vanderll/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/counts_cleanedForNorm.Rdata")
+
+order=c()
+for(i in 1:ncol(counts4)){
+    order = c(order, which(pheno$NID==sapply(strsplit(colnames(counts4)[i], split="_", fixed=TRUE), "[[", 1))[1])
+}
+pheno.want = pheno[order,]
+
+### RUV EMPIRICAL ###
+set = newSeqExpressionSet(as.matrix(round(counts4)), phenoData=data.frame(pheno.want, row.names=colnames(counts4)))
+set = betweenLaneNormalization(set, which="upper")
+
+design = model.matrix(~Group, data=pData(set))
+
+y = DGEList(counts=counts(set), group=pheno.want$Group)
+y = calcNormFactors(y, method="upperquartile")
+y = estimateGLMCommonDisp(y, design)
+y = estimateGLMTagwiseDisp(y, design)
+
+fit = glmFit(y, design)
+lrt = glmLRT(fit, coef=2:4)
+
+top = topTags(lrt, n=nrow(set))$table
+empirical = rownames(set)[which(rownames(set) %in% rownames(tail(top, n=round(nrow(counts4)/5))) & top$logCPM>0)]
+
+###Now only get the empirical genes that have a base logCPM > 0.
+emp.top = top[which(rownames(top) %in% empirical),]
+empirical = rownames(emp.top)[(which(emp.top$logCPM>0))]
+
+save(empirical, top, file="/data/home/vanderll/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/RUVempericalInfo.Dec2020.Rdata")
+```
+
+```{r, warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+load(file="Y:/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/RUVempericalInfo.Dec2020.Rdata")
+###Let's look at the base counts to see if there are empirical genes we should remove.  
+non.empirical.baseExpr = data.frame(top[-which(rownames(top) %in% empirical), "logCPM"], "Others")
+empirical.baseExpr = data.frame(top[which(rownames(top) %in% empirical), "logCPM"], "Negative Control Transcripts")
+colnames(non.empirical.baseExpr) = c("base.logCPMexpression", "Type")
+colnames(empirical.baseExpr) = c("base.logCPMexpression", "Type")
+toPlot = rbind(non.empirical.baseExpr, empirical.baseExpr)
+### Let's plot the density plots to see if there are any differences between a non-empirical vs empirical gene in terms of baseline expression (logCPM). 
+
+if(FALSE){
+ggplot(toPlot,aes(x=as.numeric(base.logCPMexpression), fill=Type)) + geom_density(alpha=0.5, stat = "density")+
+  xlab("Base Expression (logCPM)") +
+  ggtitle("Negative Control vs Other Transcripts") + 
+  theme_bw()+
+  scale_fill_manual(values=c("blue", "green"))
+
+ggplot(toPlot,aes(x=base.logCPMexpression)) + 
+    geom_histogram(data=subset(toPlot,Type == 'Others'), aes(fill = "Others"), alpha = 0.5, bins=50) +
+    geom_histogram(data=subset(toPlot,Type == 'Negative Control Transcripts'),aes(fill = "Negative Control Transcripts"), alpha = 0.2, bins=50) +
+    ggtitle("Negative Control vs Other Transcripts") + 
+    scale_fill_manual(name="Type",values=c('Negative Control Transcripts'="blue", 'Others'="green"))+
+    theme_bw()+
+    theme(legend.position="bottom")
+}
+```
+
+```{r, warning=FALSE, message=FALSE, error=FALSE, eval=FALSE, echo=FALSE}
+
+##do this first part on desktop and then save and move onto sysgen;
+scIdx = do.call(rbind, apply(as.matrix(rownames(TR)), 1, function(a) grep(a, colnames(counts4))))
+#remove the row where the one sample was removed due to low total counts;
+scIdx = scIdx[-8,]
+save(scIdx, file="Y:/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/scIdx.Rdata")
+
+##once again, do this on sysgen;
+load(file="/data/home/vanderll/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/scIdx.Rdata")
+
+set2.k1 = RUVs(normCounts(set), cIdx = empirical, k=1, scIdx=scIdx, isLog=FALSE)
+set2.k2 = RUVs(normCounts(set), cIdx = empirical, k=2, scIdx=scIdx, isLog=FALSE)
+set2.k3 = RUVs(normCounts(set), cIdx = empirical, k=3, scIdx=scIdx, isLog=FALSE)
+set2.k4 = RUVs(normCounts(set), cIdx = empirical, k=4, scIdx=scIdx,  isLog=FALSE)
+set2.k5 = RUVs(normCounts(set), cIdx = empirical, k=5, scIdx=scIdx,  isLog=FALSE)
+set2.k6 = RUVs(normCounts(set), cIdx = empirical, k=6, scIdx=scIdx, isLog=FALSE)
+set2.k7 = RUVs(normCounts(set), cIdx = empirical, k=7, scIdx=scIdx, isLog=FALSE)
+set2.k8 = RUVs(normCounts(set), cIdx = empirical, k=8, scIdx=scIdx, isLog=FALSE)
+set2.k9 = RUVs(normCounts(set), cIdx = empirical, k=9, scIdx=scIdx, isLog=FALSE)
+set2.k10 = RUVs(normCounts(set), cIdx = empirical, k=10, scIdx=scIdx, isLog=FALSE)
+set2.k11 = RUVs(normCounts(set), cIdx = empirical, k=11, scIdx=scIdx, isLog=FALSE)
+set2.k12 = RUVs(normCounts(set), cIdx = empirical, k=12, scIdx=scIdx, isLog=FALSE)
+set2.k13 = RUVs(normCounts(set), cIdx = empirical, k=13, scIdx=scIdx, isLog=FALSE)
+set2.k14 = RUVs(normCounts(set), cIdx = empirical, k=14, scIdx=scIdx, isLog=FALSE)
+set2.k15 = RUVs(normCounts(set), cIdx = empirical, k=15, scIdx=scIdx, isLog=FALSE)
+set2.k16 = RUVs(normCounts(set), cIdx = empirical, k=16, scIdx=scIdx, isLog=FALSE)
+set2.k18 = RUVs(normCounts(set), cIdx = empirical, k=18, scIdx=scIdx, isLog=FALSE)
+set2.k20 = RUVs(normCounts(set), cIdx = empirical, k=20, scIdx=scIdx, isLog=FALSE)
+set2.k22 = RUVs(normCounts(set), cIdx = empirical, k=22, scIdx=scIdx, isLog=FALSE)
+set2.k24 = RUVs(normCounts(set), cIdx = empirical, k=24, scIdx=scIdx, isLog=FALSE)
+set2.k26 = RUVs(normCounts(set), cIdx = empirical, k=26, scIdx=scIdx, isLog=FALSE)
+
+save(set2.k1, set2.k2, set2.k3, set2.k4, set2.k5, set2.k6, set2.k7, set2.k8, set2.k9, set2.k10, set2.k11, set2.k12,set2.k13,set2.k14,set2.k15,set2.k16, set2.k18, set2.k20, set2.k22, set2.k24, set2.k26, file="/data/home/vanderll/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/RUVcounts.compareDiffK.Dec2020.RUVs.Rdata")
+save(set, file="/data/home/vanderll/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/setGoesIntoRUV.Dec2020.Rdata")
+
+
+RUVcounts.k1=  set2.k1$normalizedCounts
+RUVcounts.k2 = set2.k2$normalizedCounts
+RUVcounts.k3 = set2.k3$normalizedCounts
+RUVcounts.k4 = set2.k4$normalizedCounts
+RUVcounts.k5 = set2.k5$normalizedCounts
+RUVcounts.k6 = set2.k6$normalizedCounts
+RUVcounts.k7 = set2.k7$normalizedCounts
+RUVcounts.k8 = set2.k8$normalizedCounts
+RUVcounts.k9 = set2.k9$normalizedCounts
+RUVcounts.k10 = set2.k10$normalizedCounts
+RUVcounts.k11 = set2.k11$normalizedCounts
+RUVcounts.k12 = set2.k12$normalizedCounts
+RUVcounts.k13 = set2.k13$normalizedCounts
+RUVcounts.k14 = set2.k14$normalizedCounts
+RUVcounts.k15 = set2.k15$normalizedCounts
+diffRUV = list(normCounts(set), RUVcounts.k1,RUVcounts.k2,RUVcounts.k3,RUVcounts.k4,RUVcounts.k5,RUVcounts.k6,RUVcounts.k7,RUVcounts.k8,RUVcounts.k9,RUVcounts.k10,RUVcounts.k11,RUVcounts.k12,RUVcounts.k13,RUVcounts.k14,RUVcounts.k15)
+
+RUV.ks <- 0:15
+
+meds.k <- function(a) {
+  b = sd(apply(a, 2, quantile, .5))
+  return(b)}
+interq.k <- function(a){
+  b = sd(apply(a, 2, quantile, .75) - apply(a, 2, quantile, .25))
+  return(b)}
+
+v <- unlist(lapply(diffRUV, meds.k))
+u <- unlist(lapply(diffRUV, interq.k))
+
+save(RUV.ks, v, u, file="/data/home/vanderll/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/forRUVs.elbowPlot.Dec2020.Rdata")
+```
+
+```{r, warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+#load(file="Y:/RNAseqProcessing/data/brain/HRDP.processing/techReps.Rdata")
+load(file="Y:/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/forRUVs.elbowPlot.Dec2020.Rdata")
+
+par(mfrow=c(1,1))
+plot(RUV.ks, v, type = "b", xlab = "k", ylab = "sd", col = "blue",
+     main = "Standard Deviation of Median Plot")
+if(FALSE){
+par(new = TRUE)
+plot(RUV.ks, u, axes = FALSE, type = "b", xlab = NA, ylab = NA, col = "green")
+axis(side = 4)
+mtext(side = 4, line = 3, "sd(inter-quartile range)")
+legend("topright", legend = c("median", "inter-quartile"), pch = 1, lty = 1,
+      col = c("blue", "green"), bty = "n")
+}
+
+#plotRLE(set, outline=FALSE, ylim=c(-4, 4), col=colors[x])
+#plotPCA(set, col=colors[x], cex=1.2)
+```
+
+This is a diagnostic plot to look at where the elbow is and use that as the number of factors to adjust out.  So here the best looking one is **k=1**.  
+
+```{r, warning=FALSE, message=FALSE, error=FALSE, echo=FALSE, eval=FALSE}
+rm(list=ls())
+library(DESeq2)
+
+load(file="/data/home/vanderll/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/RUVcounts.compareDiffK.Dec2020.RUVs.Rdata")
+
+
+RUVcounts.k1=  set2.k1$normalizedCounts
+RUVcounts.k2 = set2.k2$normalizedCounts
+
+load(file="/data/home/vanderll/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/RUVcounts.compareDiffK.Nov2020.Rdata")
+
+RUVcounts.k1 = set2.k1$normalizedCounts
+
+##PCA for RUVs k1
+pca.results.k1 = cmdscale(dist(t(log2(RUVcounts.k1+1))), k=3, eig=TRUE)  
+eig_pc_proportion.k1 <- pca.results.k1$eig * 100 / sum(pca.results.k1$eig)
+#look at this for PCA code with RNAseq data http://monashbioinformaticsplatform.github.io/RNAseq-DE-analysis-with-R/RNAseq_DE_analysis_with_R.html
+toPlot.k1 = data.frame(pca.results.k1$points[,1:2])
+toPlot.k1$batch = sapply(strsplit(rownames(toPlot.k1), split="_", fixed=TRUE), "[[", 2)
+save(toPlot.k1, eig_pc_proportion.k1, file="/data/home/vanderll/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/PCA_variousRUVresults_Dec2020.Rdata")
+```
+
+```{r, warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+load(file="Y:/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/PCA_variousRUVresults_Dec2020.Rdata")
+colors = brewer.pal("Set1", n=9)
+
+ggplot(toPlot.k1, aes(x=X1, y=X2, color=as.character(batch))) + geom_point() +
+  scale_color_manual(values=colors[c(1:11)])+
+  xlab(paste0("PC1 (", round(eig_pc_proportion.k1[1], 2), "%)")) +
+  ylab(paste0("PC2 (", round(eig_pc_proportion.k1[2], 2), "%)")) +
+  ggtitle("RUVs k1") + 
+  labs(color="Batch")+
+  theme_bw()+
+  theme(legend.position="bottom")
+```
+
+### Step 5. Regularized Log Transformation ###
+
+Took about 16 hours to run.  Not too bad.  
+
+```{r, echo=FALSE, eval=FALSE}
+load("Y:/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/RSEM.RUVs.k1.rlog.Dec2020.Rdata")
+
+pca.results = cmdscale(dist(t(counts.RUV.rlog)), k=3, eig=TRUE)  
+eig_pc_proportion <- pca.results$eig * 100 / sum(pca.results$eig)
+
+toPlot = data.frame(pca.results$points[,1:2])
+toPlot$batch = sapply(strsplit(rownames(toPlot), split="_", fixed=TRUE), "[[", 2)
+save(toPlot, pca.results, eig_pc_proportion, file="Y:/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/PC_finalRlog.Rdata")
+```
+
+```{r, warning=FALSE, message=FALSE, error=FALSE, echo=FALSE}
+load(file="Y:/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/PC_finalRlog.Rdata")
+load(file="Y:/LaurenV_random/Norris/RNAseq_processing/data/geneLevel/TRs.Rdata")
+
+colors = brewer.pal("Set1", n=9)
+ggplot(toPlot, aes(x=X1, y=X2, color=as.character(batch))) + geom_point() +
+  scale_color_manual(values=colors[c(1:11)])+
+  xlab(paste0("PC1 (", round(eig_pc_proportion[1], 2), "%)")) +
+  ylab(paste0("PC2 (", round(eig_pc_proportion[2], 2), "%)")) +
+  ggtitle("rlog: final data") + 
+  labs(color="Batch")+
+  theme_bw()+
+  theme(legend.position="bottom")
+```
+
+Let's look at the technical replicates in the PC plot:
+
+```{r, echo=FALSE}
+colorsMore = c(brewer.pal(9, "Set1"), brewer.pal(12, "Set3"))
+
+TRs = vector(mode="numeric", length=nrow(toPlot))
+TRs[grep(rownames(TR)[1],rownames(toPlot))]=1
+TRs[grep(rownames(TR)[2],rownames(toPlot))]=2
+TRs[grep(rownames(TR)[3],rownames(toPlot))]=3
+TRs[grep(rownames(TR)[4],rownames(toPlot))]=4
+TRs[grep(rownames(TR)[5],rownames(toPlot))]=5
+TRs[grep(rownames(TR)[6],rownames(toPlot))]=6
+TRs[grep(rownames(TR)[7],rownames(toPlot))]=7
+TRs[grep(rownames(TR)[8],rownames(toPlot))]=8
+TRs[grep(rownames(TR)[9],rownames(toPlot))]=9
+TRs[grep(rownames(TR)[10],rownames(toPlot))]=10
+TRs[grep(rownames(TR)[11],rownames(toPlot))]=11
+TRs[grep(rownames(TR)[12],rownames(toPlot))]=12
+TRs[which(TRs==0)]=13
+
+toPlot$TRs = TRs
+
+
+GnBu = brewer.pal("GnBu", n=9)
+BuPu = brewer.pal("BuPu", n=9)
+Reds = brewer.pal("Reds", n=9)
+
+colorsNew =c(GnBu[9], BuPu[9], Reds[9])
+ggplot(toPlot, aes(x=X1, y=X2, color=as.character(TRs))) + geom_point() +
+  scale_color_manual(values=c(colorsMore[c(1, 10)], colorsNew[c(1:2)], "gray", colorsMore[2:8], colorsNew[3]))+
+  xlab(paste0("PC1 (", round(eig_pc_proportion[1], 2), "%)")) +
+  ylab(paste0("PC2 (", round(eig_pc_proportion[2], 2), "%)")) +
+  ggtitle("rlog: final data") + 
+  labs(color="technical replicate pair")+
+  theme_bw()+
+  theme(legend.position="bottom")
+
+```
+
+In the end we have **306** RNA seq runs (columns) in the final matrix, which corresponds to **295** unique samples.  
+
+Final dataset will be saved under:
+
+```{r, eval=FALSE}
+/home/biostats_share/Norris/data/RNAseq/finalDatasets/geneLevel/RSEM.RUVs.k1.rlog.Dec2020.Rdata
+```
+
