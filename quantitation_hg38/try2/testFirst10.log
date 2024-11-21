@@ -1,0 +1,59 @@
+bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110420_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110420_R2.fastq | samtools view -S -b -o 110420.temp/110420.bam -
+(ERR): bowtie2-align died with signal 9 (KILL) 
+[E::sam_parse1] SEQ and QUAL are of different length
+[W::sam_read1] parse error at line 381890
+[main_samview] truncated file.
+"bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110420_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110420_R2.fastq | samtools view -S -b -o 110420.temp/110420.bam -" failed! Plase check if you provide correct parameters/options for the pipeline!
+bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110421_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110421_R2.fastq | samtools view -S -b -o 110421.temp/110421.bam -
+(ERR): bowtie2-align died with signal 9 (KILL) 
+[E::sam_parse1] SEQ and QUAL are of different length
+[W::sam_read1] parse error at line 530956
+[main_samview] truncated file.
+"bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110421_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110421_R2.fastq | samtools view -S -b -o 110421.temp/110421.bam -" failed! Plase check if you provide correct parameters/options for the pipeline!
+bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110422_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110422_R2.fastq | samtools view -S -b -o 110422.temp/110422.bam -
+(ERR): bowtie2-align died with signal 9 (KILL) 
+[E::sam_parse1] SEQ and QUAL are of different length
+[W::sam_read1] parse error at line 720149
+[main_samview] truncated file.
+"bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110422_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110422_R2.fastq | samtools view -S -b -o 110422.temp/110422.bam -" failed! Plase check if you provide correct parameters/options for the pipeline!
+bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110423_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110423_R2.fastq | samtools view -S -b -o 110423.temp/110423.bam -
+(ERR): bowtie2-align died with signal 9 (KILL) 
+[W::sam_read1] parse error at line 398185
+[main_samview] truncated file.
+"bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110423_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110423_R2.fastq | samtools view -S -b -o 110423.temp/110423.bam -" failed! Plase check if you provide correct parameters/options for the pipeline!
+bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_3_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_3_R2.fastq | samtools view -S -b -o 110424_3.temp/110424_3.bam -
+(ERR): bowtie2-align died with signal 9 (KILL) 
+[W::sam_read1] parse error at line 609897
+[main_samview] truncated file.
+"bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_3_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_3_R2.fastq | samtools view -S -b -o 110424_3.temp/110424_3.bam -" failed! Plase check if you provide correct parameters/options for the pipeline!
+bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_4_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_4_R2.fastq | samtools view -S -b -o 110424_4.temp/110424_4.bam -
+(ERR): bowtie2-align died with signal 9 (KILL) 
+[E::sam_parse1] incomplete aux field
+[W::sam_read1] parse error at line 445464
+[main_samview] truncated file.
+"bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_4_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_4_R2.fastq | samtools view -S -b -o 110424_4.temp/110424_4.bam -" failed! Plase check if you provide correct parameters/options for the pipeline!
+bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_R2.fastq | samtools view -S -b -o 110424.temp/110424.bam -
+(ERR): bowtie2-align died with signal 9 (KILL) 
+[E::sam_parse1] incomplete aux field
+[W::sam_read1] parse error at line 616822
+[main_samview] truncated file.
+"bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110424_R2.fastq | samtools view -S -b -o 110424.temp/110424.bam -" failed! Plase check if you provide correct parameters/options for the pipeline!
+bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110425_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110425_R2.fastq | samtools view -S -b -o 110425.temp/110425.bam -
+(ERR): bowtie2-align died with signal 9 (KILL) 
+[E::sam_parse1] SEQ and QUAL are of different length
+[W::sam_read1] parse error at line 464346
+[main_samview] truncated file.
+"bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110425_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110425_R2.fastq | samtools view -S -b -o 110425.temp/110425.bam -" failed! Plase check if you provide correct parameters/options for the pipeline!
+bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110426_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110426_R2.fastq | samtools view -S -b -o 110426.temp/110426.bam -
+(ERR): bowtie2-align died with signal 9 (KILL) 
+[E::sam_parse1] incomplete aux field
+[W::sam_read1] parse error at line 598399
+[main_samview] truncated file.
+"bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110426_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110426_R2.fastq | samtools view -S -b -o 110426.temp/110426.bam -" failed! Plase check if you provide correct parameters/options for the pipeline!
+bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110427_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110427_R2.fastq | samtools view -S -b -o 110427.temp/110427.bam -
+(ERR): bowtie2-align died with signal 9 (KILL) 
+[E::sam_parse1] SEQ and QUAL are of different length
+[W::sam_read1] parse error at line 450945
+[main_samview] truncated file.
+"bowtie2 -q --phred33 --sensitive --dpad 0 --gbar 99999999 --mp 1,1 --np 1 --score-min L,0,-0.1 -I 1 -X 1000 --no-mixed --no-discordant -p 8 -k 200 -x /home/biostats_share/Norris/data/annotation/hg38/rsem_ref/hg38 -1 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110427_R1.fastq -2 /home/biostats_share/Norris/data/RNAseq/trimmedReads_cat/110427_R2.fastq | samtools view -S -b -o 110427.temp/110427.bam -" failed! Plase check if you provide correct parameters/options for the pipeline!
+slurmstepd: error: Detected 18 oom-kill event(s) in step 2704.batch cgroup. Some of your processes may have been killed by the cgroup out-of-memory handler.
